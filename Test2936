@@ -1,0 +1,595 @@
+
+-- The GSSAB Player Ultra
+-- Roblox Lua / Luau
+-- For your own Roblox experience or authorized testing.
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- Save starting settings for reset
+local DefaultGravity = workspace.Gravity
+local InitialCharacter = Player.Character
+local InitialHumanoid = InitialCharacter
+    and InitialCharacter:FindFirstChildOfClass("Humanoid")
+
+local DefaultUseJumpPower = InitialHumanoid
+    and InitialHumanoid.UseJumpPower or true
+local DefaultJumpPower = InitialHumanoid
+    and InitialHumanoid.JumpPower or 50
+local DefaultJumpHeight = InitialHumanoid
+    and InitialHumanoid.JumpHeight or 7.2
+
+-- Custom violet-black intro
+local Intro = Instance.new("ScreenGui")
+Intro.Name = "GSSABUltraIntro"
+Intro.IgnoreGuiInset = true
+Intro.ResetOnSpawn = false
+Intro.DisplayOrder = 10000
+Intro.Parent = PlayerGui
+
+local Background = Instance.new("Frame")
+Background.Size = UDim2.fromScale(1, 1)
+Background.BackgroundColor3 = Color3.fromRGB(7, 5, 14)
+Background.BorderSizePixel = 0
+Background.Parent = Intro
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 5, 18)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(38, 12, 65)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 12)),
+})
+Gradient.Rotation = 35
+Gradient.Parent = Background
+
+local Content = Instance.new("CanvasGroup")
+Content.AnchorPoint = Vector2.new(0.5, 0.5)
+Content.Position = UDim2.fromScale(0.5, 0.46)
+Content.Size = UDim2.new(0.9, 0, 0, 300)
+Content.BackgroundTransparency = 1
+Content.GroupTransparency = 1
+Content.Parent = Background
+
+local Limit = Instance.new("UISizeConstraint")
+Limit.MaxSize = Vector2.new(560, 300)
+Limit.MinSize = Vector2.new(280, 300)
+Limit.Parent = Content
+
+local function Label(name, text, y, height, font, size, color)
+    local item = Instance.new("TextLabel")
+    item.Name = name
+    item.Position = UDim2.fromOffset(0, y)
+    item.Size = UDim2.new(1, 0, 0, height)
+    item.BackgroundTransparency = 1
+    item.Font = font
+    item.Text = text
+    item.TextColor3 = color
+    item.TextSize = size
+    item.Parent = Content
+    return item
+end
+
+local Logo = Label(
+    "Logo", "GSSAB", 0, 66,
+    Enum.Font.GothamBlack, 54, Color3.new(1, 1, 1)
+)
+Logo.TextScaled = true
+
+local LogoGradient = Instance.new("UIGradient")
+LogoGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 185, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(125, 75, 255)),
+})
+LogoGradient.Parent = Logo
+
+Label(
+    "Subtitle", "PLAYER ULTRA", 69, 30,
+    Enum.Font.GothamMedium, 17,
+    Color3.fromRGB(190, 150, 255)
+)
+
+local Credit = Label(
+    "CommunityCredit",
+    "Made By The GSSAB Scripting Community!",
+    112, 32, Enum.Font.GothamMedium, 14,
+    Color3.fromRGB(248, 244, 255)
+)
+Credit.TextWrapped = true
+
+local Status = Label(
+    "Status", "INITIALIZING...", 177, 22,
+    Enum.Font.Gotham, 12,
+    Color3.fromRGB(190, 175, 215)
+)
+
+local Bar = Instance.new("Frame")
+Bar.Position = UDim2.new(0.06, 0, 0, 210)
+Bar.Size = UDim2.new(0.88, 0, 0, 9)
+Bar.BackgroundColor3 = Color3.fromRGB(38, 29, 53)
+Bar.BorderSizePixel = 0
+Bar.ClipsDescendants = true
+Bar.Parent = Content
+
+local BarCorner = Instance.new("UICorner")
+BarCorner.CornerRadius = UDim.new(1, 0)
+BarCorner.Parent = Bar
+
+local Fill = Instance.new("Frame")
+Fill.Size = UDim2.fromScale(0, 1)
+Fill.BackgroundColor3 = Color3.fromRGB(145, 65, 255)
+Fill.BorderSizePixel = 0
+Fill.Parent = Bar
+
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(1, 0)
+FillCorner.Parent = Fill
+
+local Percent = Label(
+    "Percent", "0%", 229, 24,
+    Enum.Font.GothamBold, 14,
+    Color3.fromRGB(248, 244, 255)
+)
+
+local function SetProgress(value, message)
+    value = math.clamp(value, 0, 100)
+    Percent.Text = math.floor(value) .. "%"
+    Status.Text = message
+
+    TweenService:Create(
+        Fill,
+        TweenInfo.new(0.25, Enum.EasingStyle.Quint),
+        {Size = UDim2.fromScale(value / 100, 1)}
+    ):Play()
+end
+
+TweenService:Create(
+    Content,
+    TweenInfo.new(0.7, Enum.EasingStyle.Quint),
+    {GroupTransparency = 0}
+):Play()
+
+-- Load Rayfield Gen2
+SetProgress(10, "LOADING INTERFACE")
+
+local Rayfield
+local ok, err = pcall(function()
+    Rayfield = loadstring(
+        game:HttpGet("https://sirius.menu/gen2")
+    )()
+end)
+
+if not ok or not Rayfield then
+    SetProgress(100, "INTERFACE FAILED TO LOAD")
+    warn("Rayfield load failed:", err)
+    task.wait(2)
+    Intro:Destroy()
+    return
+end
+
+SetProgress(30, "BUILDING CONTROLS")
+
+local Window = Rayfield:CreateWindow({
+    name = "The GSSAB Player Ultra",
+    subtitle = "ULTIMATE PLAYER CONTROL",
+    sidebarLayout = true,
+})
+
+local MovementTab = Window:CreateTab({
+    name = "Movement",
+    icon = "zap",
+})
+
+local TeleportTab = Window:CreateTab({
+    name = "Teleport",
+    icon = "map-pin",
+})
+
+-- NEW TAB
+local GravityTab = Window:CreateTab({
+    name = "Gravity & Jump",
+    icon = "rocket",
+})
+
+MovementTab:CreateSection("MOVEMENT MODULES")
+TeleportTab:CreateSection("POSITION CONTROL")
+GravityTab:CreateSection("GRAVITY CONTROL")
+GravityTab:CreateSection("JUMP CONTROL")
+
+local InfiniteJump = false
+local ClickTeleport = false
+local Noclip = false
+local WalkSpeed = 16
+local FloatSpeed = 40
+
+-- NEW: selected jump power
+local JumpPower = DefaultJumpPower
+
+local FloatGui
+local FloatVelocity
+local FloatConnection
+local NoclipConnection
+local DescendantConnection
+local OriginalCollision = {}
+local UpHeld = false
+local DownHeld = false
+
+local function Character()
+    return Player.Character
+end
+
+local function Humanoid()
+    local char = Character()
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function Root()
+    local char = Character()
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function ApplySpeed()
+    local hum = Humanoid()
+    if hum then
+        hum.WalkSpeed = WalkSpeed
+    end
+end
+
+-- NEW: apply the selected jump power
+local function ApplyJumpPower()
+    local hum = Humanoid()
+    if hum then
+        hum.UseJumpPower = true
+        hum.JumpPower = JumpPower
+    end
+end
+
+-- Infinite jump
+UserInputService.JumpRequest:Connect(function()
+    if InfiniteJump then
+        local hum = Humanoid()
+        if hum and hum.Health > 0 then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- Noclip with collision restoration
+local function RestoreCollisions()
+    if NoclipConnection then
+        NoclipConnection:Disconnect()
+        NoclipConnection = nil
+    end
+
+    if DescendantConnection then
+        DescendantConnection:Disconnect()
+        DescendantConnection = nil
+    end
+
+    for part, original in pairs(OriginalCollision) do
+        if part and part.Parent then
+            part.CanCollide = original
+        end
+    end
+
+    table.clear(OriginalCollision)
+end
+
+local function TrackPart(part)
+    if not Noclip or not part:IsA("BasePart") then
+        return
+    end
+
+    if OriginalCollision[part] == nil then
+        OriginalCollision[part] = part.CanCollide
+    end
+
+    part.CanCollide = false
+end
+
+local function SetNoclip(enabled)
+    Noclip = enabled
+    RestoreCollisions()
+
+    if not enabled then
+        return
+    end
+
+    local char = Character()
+    if not char then
+        return
+    end
+
+    for _, part in ipairs(char:GetDescendants()) do
+        TrackPart(part)
+    end
+
+    DescendantConnection = char.DescendantAdded:Connect(TrackPart)
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        local current = Character()
+        if Noclip and current then
+            for _, part in ipairs(current:GetDescendants()) do
+                TrackPart(part)
+            end
+        end
+    end)
+end
+
+-- Flotation
+local function StopFlotation()
+    UpHeld = false
+    DownHeld = false
+
+    if FloatConnection then
+        FloatConnection:Disconnect()
+        FloatConnection = nil
+    end
+
+    if FloatVelocity then
+        FloatVelocity:Destroy()
+        FloatVelocity = nil
+    end
+
+    if FloatGui then
+        FloatGui:Destroy()
+        FloatGui = nil
+    end
+end
+
+local function HoldButton(parent, text, y, onDown, onUp)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.fromOffset(62, 56)
+    button.Position = UDim2.fromOffset(8, y)
+    button.BackgroundColor3 = Color3.fromRGB(25, 32, 48)
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(180, 125, 255)
+    button.TextSize = 25
+    button.Font = Enum.Font.GothamBold
+    button.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 14)
+    corner.Parent = button
+
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            onDown()
+        end
+    end)
+
+    button.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            onUp()
+        end
+    end)
+
+    return button
+end
+
+local function StartFlotation()
+    StopFlotation()
+
+    local root = Root()
+    if not root or not Humanoid() then
+        return
+    end
+
+    FloatGui = Instance.new("ScreenGui")
+    FloatGui.Name = "GSSABFlotation"
+    FloatGui.ResetOnSpawn = false
+    FloatGui.DisplayOrder = 20
+    FloatGui.Parent = PlayerGui
+
+    local panel = Instance.new("Frame")
+    panel.Size = UDim2.fromOffset(78, 138)
+    panel.Position = UDim2.new(1, -94, 0.5, -69)
+    panel.BackgroundColor3 = Color3.fromRGB(13, 18, 30)
+    panel.Parent = FloatGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 18)
+    corner.Parent = panel
+
+    HoldButton(panel, "▲", 8,
+        function() UpHeld = true end,
+        function() UpHeld = false end
+    )
+
+    HoldButton(panel, "▼", 74,
+        function() DownHeld = true end,
+        function() DownHeld = false end
+    )
+
+    FloatVelocity = Instance.new("BodyVelocity")
+    FloatVelocity.Name = "GSSABFloatVelocity"
+    FloatVelocity.MaxForce = Vector3.new(0, 1000000, 0)
+    FloatVelocity.P = 15000
+    FloatVelocity.Velocity = Vector3.zero
+    FloatVelocity.Parent = root
+
+    FloatConnection = RunService.Heartbeat:Connect(function()
+        if not FloatVelocity or not FloatVelocity.Parent then
+            return
+        end
+
+        local speed = 0
+        if UpHeld and not DownHeld then
+            speed = FloatSpeed
+        elseif DownHeld and not UpHeld then
+            speed = -FloatSpeed
+        end
+
+        FloatVelocity.Velocity = Vector3.new(0, speed, 0)
+    end)
+end
+
+-- Movement controls
+SetProgress(55, "SETTING UP MOVEMENT")
+
+MovementTab:CreateToggle({
+    name = "Infinite Jump",
+    callback = function(value)
+        InfiniteJump = value
+    end,
+})
+
+MovementTab:CreateSlider({
+    name = "Walk Speed",
+    range = {16, 100},
+    increment = 1,
+    currentValue = 16,
+    callback = function(value)
+        WalkSpeed = value
+        ApplySpeed()
+    end,
+})
+
+MovementTab:CreateToggle({
+    name = "Noclip",
+    callback = SetNoclip,
+})
+
+MovementTab:CreateSlider({
+    name = "Flotation Speed",
+    range = {10, 100},
+    increment = 5,
+    currentValue = 40,
+    callback = function(value)
+        FloatSpeed = value
+    end,
+})
+
+MovementTab:CreateToggle({
+    name = "Flotation",
+    callback = function(value)
+        if value then
+            StartFlotation()
+        else
+            StopFlotation()
+        end
+    end,
+})
+
+-- Click teleport
+SetProgress(75, "SETTING UP TELEPORT")
+
+local Mouse = Player:GetMouse()
+
+TeleportTab:CreateToggle({
+    name = "Click Teleport",
+    callback = function(value)
+        ClickTeleport = value
+    end,
+})
+
+Mouse.Button1Down:Connect(function()
+    if not ClickTeleport then
+        return
+    end
+
+    local root = Root()
+    if root then
+        root.CFrame = CFrame.new(
+            Mouse.Hit.Position + Vector3.new(0, 4, 0)
+        )
+    end
+end)
+
+-- NEW: Gravity slider
+GravityTab:CreateSlider({
+    name = "🌍 Change Gravity",
+    range = {0, 300},
+    increment = 5,
+    currentValue = DefaultGravity,
+    callback = function(value)
+        workspace.Gravity = value
+    end,
+})
+
+-- NEW: Jump power slider
+GravityTab:CreateSlider({
+    name = "🚀 Jump Power",
+    range = {0, 1000},
+    increment = 10,
+    currentValue = JumpPower,
+    callback = function(value)
+        JumpPower = value
+        ApplyJumpPower()
+    end,
+})
+
+-- NEW: Reset gravity and jump settings
+GravityTab:CreateButton({
+    name = "Reset Gravity & Jump",
+    callback = function()
+        workspace.Gravity = DefaultGravity
+        JumpPower = DefaultJumpPower
+
+        local hum = Humanoid()
+        if hum then
+            hum.UseJumpPower = true
+            hum.JumpPower = DefaultJumpPower
+            hum.JumpHeight = DefaultJumpHeight
+            hum.UseJumpPower = DefaultUseJumpPower
+        end
+    end,
+})
+
+-- Respawn cleanup and settings
+Player.CharacterAdded:Connect(function(char)
+    StopFlotation()
+    SetNoclip(false)
+
+    local hum = char:WaitForChild("Humanoid", 10)
+    if hum then
+        hum.WalkSpeed = WalkSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower = JumpPower
+    end
+end)
+
+Player.CharacterRemoving:Connect(function()
+    StopFlotation()
+    SetNoclip(false)
+end)
+
+ApplySpeed()
+ApplyJumpPower()
+
+-- Finish intro
+SetProgress(100, "INITIALIZATION COMPLETE")
+task.wait(0.5)
+
+local fadeInfo = TweenInfo.new(
+    0.8,
+    Enum.EasingStyle.Quint,
+    Enum.EasingDirection.Out
+)
+
+for _, object in ipairs(Intro:GetDescendants()) do
+    if object:IsA("TextLabel") then
+        TweenService:Create(
+            object, fadeInfo, {TextTransparency = 1}
+        ):Play()
+    elseif object:IsA("Frame") then
+        TweenService:Create(
+            object, fadeInfo, {BackgroundTransparency = 1}
+        ):Play()
+    end
+end
+
+TweenService:Create(
+    Content, fadeInfo, {GroupTransparency = 1}
+):Play()
+
+task.wait(0.9)
+Intro:Destroy()
+
+print("The GSSAB Player Ultra loaded.")
